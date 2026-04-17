@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"bufio"
@@ -12,21 +12,22 @@ import (
 	"strconv"
 	"testing"
 
+	"cristhianflo/language-royale/internal/score"
 	"github.com/gin-gonic/gin"
 )
 
 const scoreFixtureSampleCount = 10
 
 type scoreFixture struct {
-	Input      json.RawMessage `json:"input"`
-	Output     *CaseResponse   `json:"output"`
-	StatusCode int             `json:"status_code"`
+	Input      json.RawMessage     `json:"input"`
+	Output     *score.CaseResponse `json:"output"`
+	StatusCode int                 `json:"status_code"`
 	lineNumber int
 }
 
 func TestHealth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := newRouter()
+	router := NewRouter()
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -49,7 +50,7 @@ func TestHealth(t *testing.T) {
 
 func TestScoreFixturesFirstTen(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := newRouter()
+	router := NewRouter()
 	fixtures := loadScoreFixtures(t, scoreFixtureSampleCount)
 
 	for _, fixture := range fixtures {
@@ -72,7 +73,7 @@ func TestScoreFixturesFirstTen(t *testing.T) {
 				t.Fatalf("fixture line %d is missing expected output", fixture.lineNumber)
 			}
 
-			var got CaseResponse
+			var got score.CaseResponse
 			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 				t.Fatalf("failed to decode score response: %v", err)
 			}
@@ -94,7 +95,7 @@ func TestScoreFixturesFirstTen(t *testing.T) {
 
 func TestScoreHackFixturesStatusOnly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := newRouter()
+	router := NewRouter()
 
 	file, err := os.Open(filepath.Join("..", "..", "hack", "problem_a_generate.jsonl"))
 	if err != nil {
@@ -166,7 +167,7 @@ func loadScoreFixtures(t *testing.T, limit int) []scoreFixture {
 }
 
 func scoreFixturePath() string {
-	return filepath.Join("..", "..", "api_testcases.jsonl", "api_testcases.jsonl")
+	return filepath.Join("..", "..", "hack", "api_testcases_subset.jsonl")
 }
 
 func fixtureName(fixture scoreFixture) string {
