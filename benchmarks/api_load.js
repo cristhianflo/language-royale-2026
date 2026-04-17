@@ -2,6 +2,10 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { SharedArray } from "k6/data";
 
+const scoreTolerance = 1e-9;
+
+http.setResponseCallback(http.expectedStatuses(200, 400));
+
 // Load and parse the JSONL file once using SharedArray to save memory across VUs
 const testCases = new SharedArray("api test cases", function () {
   const fileContent = open("../hack/problem_a_generate.jsonl");
@@ -14,7 +18,6 @@ const testCases = new SharedArray("api test cases", function () {
 export const options = {
   vus: 10,
   duration: "30s",
-  setResponseCallback: http.expectedStatuses(200, 400),
 };
 
 export default function () {
@@ -48,7 +51,7 @@ export default function () {
     check(body, {
       "has correct case_id": (b) => b && b.case_id === tc.output.case_id,
       "has correct tier": (b) => b && b.tier === tc.output.tier,
-      // Optional: you can add a score check here as well, being mindful of floating point comparison if necessary
+      "has correct score": (b) => b && Math.abs(b.score - tc.output.score) <= scoreTolerance,
     });
   }
 
