@@ -72,7 +72,8 @@ func fastValidateTS(ts string) bool {
 	if ts[4] != '-' || ts[7] != '-' || ts[10] != 'T' || ts[13] != ':' || ts[16] != ':' || ts[19] != 'Z' {
 		return false
 	}
-	for i := 0; i < 20; i++ {
+
+	for i := range 20 {
 		if i == 4 || i == 7 || i == 10 || i == 13 || i == 16 || i == 19 {
 			continue
 		}
