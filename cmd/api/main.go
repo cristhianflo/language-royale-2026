@@ -1,18 +1,11 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+	"strings"
 
-type Tier int
-
-const (
-	Cold Tier = iota // 0
-	Warm             // 1
-	Hot              // 2
+	"github.com/gin-gonic/gin"
 )
-
-func (t Tier) String() string {
-	return [...]string{"COLD", "WARM", "HOT"}[t]
-}
 
 type Signals struct {
 	LprHits24h        int     `json:"lpr_hits_24h" binding:"required,min=0,max=10000"`
@@ -29,11 +22,51 @@ type CaseRequest struct {
 type CaseResponse struct {
 	CaseID string  `json:"case_id"`
 	Score  float64 `json:"score"`
-	Tier   Tier    `json:"tier"`
+	Tier   string  `json:"tier"`
+}
+
+func getTier(score float64) string {
+	if score >= 0.80 {
+		return "HOT"
+	}
+	if score >= 0.50 {
+		return "WARM"
+	}
+	return "COLD"
 }
 
 func main() {
 	router := gin.Default()
+
+	router.POST("/score", func(c *gin.Context) {
+		var req CaseRequest
+
+		// 1. Bind and Validate (Handles required keys and ranges)
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// 2. Explicit check for trimmed length
+		if len(strings.TrimSpace(req.CaseID)) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "case_id cannot be empty or whitespace"})
+			return
+		}
+
+		// 3. Scoring Logic
+		// (Mocking a score here; you can replace this with your sigmoid logic)
+		score := 0.87
+
+		// 4. Build Response
+		resp := CaseResponse{
+			CaseID: req.CaseID,
+			Score:  score,
+			Tier:   getTier(score),
+		}
+
+		// 5. Return 200 OK (Extra keys in request are ignored by default)
+		c.JSON(http.StatusOK, resp)
+	})
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
