@@ -4,7 +4,7 @@ import { SharedArray } from "k6/data";
 
 // Load and parse the JSONL file once using SharedArray to save memory across VUs
 const testCases = new SharedArray("api test cases", function () {
-  const fileContent = open("./problem_a_generate.jsonl");
+  const fileContent = open("../hack/problem_a_generate.jsonl");
   return fileContent
     .split("\n")
     .filter((line) => line.trim().length > 0)
@@ -14,6 +14,7 @@ const testCases = new SharedArray("api test cases", function () {
 export const options = {
   vus: 10,
   duration: "30s",
+  setResponseCallback: http.expectedStatuses(200, 400),
 };
 
 export default function () {

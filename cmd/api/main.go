@@ -25,6 +25,8 @@ type scoreInput struct {
 	DaysSinceLastSeen int64
 }
 
+type rawPayload map[string]json.RawMessage
+
 var errInvalidInput = errors.New("invalid input")
 
 func roundToTwoDecimals(value float64) float64 {
@@ -57,9 +59,8 @@ func getTier(score float64) string {
 
 func parseScoreInput(reader io.Reader) (scoreInput, error) {
 	decoder := json.NewDecoder(reader)
-	decoder.UseNumber()
 
-	var payload map[string]any
+	var payload rawPayload
 	if err := decoder.Decode(&payload); err != nil {
 		return scoreInput{}, errInvalidInput
 	}
@@ -69,13 +70,13 @@ func parseScoreInput(reader io.Reader) (scoreInput, error) {
 		return scoreInput{}, errInvalidInput
 	}
 
-	caseID, ok := payload["case_id"].(string)
-	if !ok || len(strings.TrimSpace(caseID)) == 0 {
+	caseID, err := parseRequiredString(payload, "case_id")
+	if err != nil {
 		return scoreInput{}, errInvalidInput
 	}
 
-	signals, ok := payload["signals"].(map[string]any)
-	if !ok {
+	signals, err := parseRequiredObject(payload, "signals")
+	if err != nil {
 		return scoreInput{}, errInvalidInput
 	}
 
@@ -84,9 +85,9 @@ func parseScoreInput(reader io.Reader) (scoreInput, error) {
 		return scoreInput{}, err
 	}
 
-	addressMatch, ok := signals["address_match"].(bool)
-	if !ok {
-		return scoreInput{}, errInvalidInput
+	addressMatch, err := parseRequiredBool(signals, "address_match")
+	if err != nil {
+		return scoreInput{}, err
 	}
 
 	distanceMiles, err := parseRequiredNumber(signals, "distance_miles", 0, 10000)
@@ -108,28 +109,70 @@ func parseScoreInput(reader io.Reader) (scoreInput, error) {
 	}, nil
 }
 
-func parseRequiredInt(values map[string]any, key string, min int64, max int64) (int64, error) {
-	number, ok := values[key].(json.Number)
+func parseRequiredString(values rawPayload, key string) (string, error) {
+	rawValue, ok := values[key]
+	if !ok {
+		return "", errInvalidInput
+	}
+
+	var parsed string
+	if err := json.Unmarshal(rawValue, &parsed); err != nil || len(strings.TrimSpace(parsed)) == 0 {
+		return "", errInvalidInput
+	}
+
+	return parsed, nil
+}
+
+func parseRequiredObject(values rawPayload, key string) (rawPayload, error) {
+	rawValue, ok := values[key]
+	if !ok {
+		return nil, errInvalidInput
+	}
+
+	var parsed rawPayload
+	if err := json.Unmarshal(rawValue, &parsed); err != nil {
+		return nil, errInvalidInput
+	}
+
+	return parsed, nil
+}
+
+func parseRequiredBool(values rawPayload, key string) (bool, error) {
+	rawValue, ok := values[key]
+	if !ok {
+		return false, errInvalidInput
+	}
+
+	var parsed bool
+	if err := json.Unmarshal(rawValue, &parsed); err != nil {
+		return false, errInvalidInput
+	}
+
+	return parsed, nil
+}
+
+func parseRequiredInt(values rawPayload, key string, min int64, max int64) (int64, error) {
+	rawValue, ok := values[key]
 	if !ok {
 		return 0, errInvalidInput
 	}
 
-	parsed, err := number.Int64()
-	if err != nil || parsed < min || parsed > max {
+	var parsed int64
+	if err := json.Unmarshal(rawValue, &parsed); err != nil || parsed < min || parsed > max {
 		return 0, errInvalidInput
 	}
 
 	return parsed, nil
 }
 
-func parseRequiredNumber(values map[string]any, key string, min float64, max float64) (float64, error) {
-	number, ok := values[key].(json.Number)
+func parseRequiredNumber(values rawPayload, key string, min float64, max float64) (float64, error) {
+	rawValue, ok := values[key]
 	if !ok {
 		return 0, errInvalidInput
 	}
 
-	parsed, err := number.Float64()
-	if err != nil || parsed < min || parsed > max {
+	var parsed float64
+	if err := json.Unmarshal(rawValue, &parsed); err != nil || parsed < min || parsed > max {
 		return 0, errInvalidInput
 	}
 
@@ -137,7 +180,8 @@ func parseRequiredNumber(values map[string]any, key string, min float64, max flo
 }
 
 func newRouter() *gin.Engine {
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery())
 
 	router.POST("/score", func(c *gin.Context) {
 		input, err := parseScoreInput(c.Request.Body)
@@ -167,6 +211,7 @@ func newRouter() *gin.Engine {
 }
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 	router := newRouter()
 	router.Run() // listens on 0.0.0.0:8080 by default
 }
