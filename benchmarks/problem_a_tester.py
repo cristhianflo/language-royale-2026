@@ -57,17 +57,14 @@ async def worker(
     q: "asyncio.Queue[TestCase]",
     timeout_s: float,
     results: List[Result],
-    stop_at: float,
 ) -> None:
     while True:
-        if time.perf_counter() >= stop_at:
-            return
-
         try:
             tc = q.get_nowait()
         except asyncio.QueueEmpty:
-            await asyncio.sleep(0.001)
-            continue
+            return
+            # await asyncio.sleep(0.001)
+            # continue
 
         t0 = time.perf_counter()
         try:
@@ -199,7 +196,6 @@ async def main_async() -> None:
     ap.add_argument("--url", default="http://localhost:8000/score")
     ap.add_argument("--testcases", default="problem_a_generate.jsonl")
     ap.add_argument("--concurrency", type=int, default=100)
-    ap.add_argument("--duration", type=float, default=60.0)
     ap.add_argument("--timeout", type=float, default=5.0)
     ap.add_argument("--max_cases", type=int, default=0, help="0 = all")
     args = ap.parse_args()
@@ -231,12 +227,11 @@ async def main_async() -> None:
     connector = aiohttp.TCPConnector(limit=0, ttl_dns_cache=300)
 
     started_at = time.perf_counter()
-    stop_at = started_at + args.duration
 
     async with aiohttp.ClientSession(connector=connector) as session:
         workers = [
             asyncio.create_task(
-                worker(session, args.url, q, args.timeout, results, stop_at)
+                worker(session, args.url, q, args.timeout, results)
             )
             for _ in range(args.concurrency)
         ]
