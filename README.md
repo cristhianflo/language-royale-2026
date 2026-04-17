@@ -9,7 +9,7 @@ Go implementation of Problem A: a decisioning microservice with `POST /score` an
 
 ## Run the API
 
-Start the server on `http://localhost:8080`:
+Start the server on `http://localhost:8000`:
 
 ```bash
 go run ./cmd/api

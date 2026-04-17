@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -28,6 +29,7 @@ type scoreInput struct {
 type rawPayload map[string]json.RawMessage
 
 var errInvalidInput = errors.New("invalid input")
+var jsonNull = []byte("null")
 
 func roundToTwoDecimals(value float64) float64 {
 	return math.Round(value*100) / 100
@@ -111,7 +113,7 @@ func parseScoreInput(reader io.Reader) (scoreInput, error) {
 
 func parseRequiredString(values rawPayload, key string) (string, error) {
 	rawValue, ok := values[key]
-	if !ok {
+	if !ok || isNullJSON(rawValue) {
 		return "", errInvalidInput
 	}
 
@@ -125,7 +127,7 @@ func parseRequiredString(values rawPayload, key string) (string, error) {
 
 func parseRequiredObject(values rawPayload, key string) (rawPayload, error) {
 	rawValue, ok := values[key]
-	if !ok {
+	if !ok || isNullJSON(rawValue) {
 		return nil, errInvalidInput
 	}
 
@@ -139,7 +141,7 @@ func parseRequiredObject(values rawPayload, key string) (rawPayload, error) {
 
 func parseRequiredBool(values rawPayload, key string) (bool, error) {
 	rawValue, ok := values[key]
-	if !ok {
+	if !ok || isNullJSON(rawValue) {
 		return false, errInvalidInput
 	}
 
@@ -153,7 +155,7 @@ func parseRequiredBool(values rawPayload, key string) (bool, error) {
 
 func parseRequiredInt(values rawPayload, key string, min int64, max int64) (int64, error) {
 	rawValue, ok := values[key]
-	if !ok {
+	if !ok || isNullJSON(rawValue) {
 		return 0, errInvalidInput
 	}
 
@@ -167,7 +169,7 @@ func parseRequiredInt(values rawPayload, key string, min int64, max int64) (int6
 
 func parseRequiredNumber(values rawPayload, key string, min float64, max float64) (float64, error) {
 	rawValue, ok := values[key]
-	if !ok {
+	if !ok || isNullJSON(rawValue) {
 		return 0, errInvalidInput
 	}
 
@@ -177,6 +179,10 @@ func parseRequiredNumber(values rawPayload, key string, min float64, max float64
 	}
 
 	return parsed, nil
+}
+
+func isNullJSON(rawValue json.RawMessage) bool {
+	return bytes.Equal(bytes.TrimSpace(rawValue), jsonNull)
 }
 
 func newRouter() *gin.Engine {
@@ -213,5 +219,5 @@ func newRouter() *gin.Engine {
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := newRouter()
-	router.Run() // listens on 0.0.0.0:8080 by default
+	router.Run(":8000")
 }

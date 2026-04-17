@@ -25,7 +25,7 @@ export default function () {
   const randomIdx = Math.floor(Math.random() * testCases.length);
   const tc = testCases[randomIdx];
 
-  const url = "http://localhost:8080/score";
+  const url = "http://localhost:8000/score";
   const payload = JSON.stringify(tc.input);
   const params = {
     headers: { "Content-Type": "application/json" },

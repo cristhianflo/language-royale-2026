@@ -92,6 +92,41 @@ func TestScoreFixturesFirstTen(t *testing.T) {
 	}
 }
 
+func TestScoreHackFixturesStatusOnly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := newRouter()
+
+	file, err := os.Open(filepath.Join("..", "..", "hack", "problem_a_generate.jsonl"))
+	if err != nil {
+		t.Fatalf("failed to open hack fixture file: %v", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	for lineNumber := 1; scanner.Scan(); lineNumber++ {
+		var fixture scoreFixture
+		if err := json.Unmarshal(scanner.Bytes(), &fixture); err != nil {
+			t.Fatalf("failed to decode hack fixture line %d: %v", lineNumber, err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/score", bytes.NewReader(fixture.Input))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != fixture.StatusCode {
+			t.Fatalf("hack fixture line %d expected status %d, got %d with body %s", lineNumber, fixture.StatusCode, rec.Code, rec.Body.String())
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("failed to scan hack fixture file: %v", err)
+	}
+}
+
 func loadScoreFixtures(t *testing.T, limit int) []scoreFixture {
 	t.Helper()
 
